@@ -82,7 +82,7 @@ export default function Home() {
     <div className="max-w-2xl mx-auto">
       <Card>
         <CardHeader>
-          <CardTitle>Submit Autonode Task</CardTitle>
+          <CardTitle>Submit AI Agent Task</CardTitle>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -92,14 +92,14 @@ export default function Home() {
                 name="agentType"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Autonode Type</FormLabel>
+                    <FormLabel>AI Agent Type</FormLabel>
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a node" />
+                          <SelectValue placeholder="Select an agent" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
