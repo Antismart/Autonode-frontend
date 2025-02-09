@@ -16,14 +16,16 @@ export default function TaskStatus({ task }: { task: Task }) {
         {task.status.toUpperCase()}
       </Badge>
       {task.result && (
-        <p className="text-sm text-muted-foreground">{task.result}</p>
+        <div className="text-sm text-muted-foreground whitespace-pre-line">
+          {task.result}
+        </div>
       )}
       {task.txHash && (
         <a
           href={`https://etherscan.io/tx/${task.txHash}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm text-primary hover:underline"
+          className="text-sm text-primary hover:underline block mt-1"
         >
           View Transaction
         </a>
