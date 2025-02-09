@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Task } from "@shared/schema";
 import TaskStatus from "@/components/task-status";
@@ -13,18 +14,66 @@ import {
 import { format } from "date-fns";
 
 export default function TaskHistory() {
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+
+  // Listen for wallet changes
+  useEffect(() => {
+    if (window.ethereum) {
+      window.ethereum.request({ method: 'eth_accounts' })
+        .then((accounts: string[]) => setWalletAddress(accounts[0] || null));
+
+      window.ethereum.on("accountsChanged", (accounts: string[]) => {
+        setWalletAddress(accounts[0] || null);
+      });
+    }
+  }, []);
+
   const query = useQuery<Task[]>({
-    queryKey: ["/api/tasks/0x123"], // Replace with actual wallet address
-    enabled: false, // Disabled until wallet is connected
+    queryKey: [`/api/tasks/${walletAddress}`],
+    enabled: !!walletAddress,
+    refetchInterval: 2000, // Refetch every 2 seconds for real-time updates
   });
 
+  if (!walletAddress) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Task History</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">Please connect your wallet to view task history.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (query.isLoading) {
-    return <div>Loading...</div>;
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Task History</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">Loading tasks...</p>
+        </CardContent>
+      </Card>
+    );
   }
 
   if (query.error) {
-    return <div>Error: {(query.error as Error).message}</div>;
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Task History</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-destructive">Error: {(query.error as Error).message}</p>
+        </CardContent>
+      </Card>
+    );
   }
+
+  const tasks = query.data || [];
 
   return (
     <Card>
@@ -32,28 +81,32 @@ export default function TaskHistory() {
         <CardTitle>Task History</CardTitle>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Agent Type</TableHead>
-              <TableHead>Input</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {query.data?.map((task) => (
-              <TableRow key={task.id}>
-                <TableCell>{format(new Date(task.timestamp), "PPp")}</TableCell>
-                <TableCell>{task.agentType}</TableCell>
-                <TableCell>{task.input}</TableCell>
-                <TableCell>
-                  <TaskStatus task={task} />
-                </TableCell>
+        {tasks.length === 0 ? (
+          <p className="text-muted-foreground">No tasks found.</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Agent Type</TableHead>
+                <TableHead>Input</TableHead>
+                <TableHead>Status</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {tasks.map((task) => (
+                <TableRow key={task.id}>
+                  <TableCell>{format(new Date(task.timestamp), "PPp")}</TableCell>
+                  <TableCell>{task.agentType}</TableCell>
+                  <TableCell className="max-w-md truncate">{task.input}</TableCell>
+                  <TableCell>
+                    <TaskStatus task={task} />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </CardContent>
     </Card>
   );

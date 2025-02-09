@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { insertTaskSchema, agentTypes } from "@shared/schema";
@@ -29,6 +29,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export default function Home() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (window.ethereum) {
+      window.ethereum.request({ method: 'eth_accounts' })
+        .then((accounts: string[]) => setWalletAddress(accounts[0] || null));
+
+      window.ethereum.on("accountsChanged", (accounts: string[]) => {
+        setWalletAddress(accounts[0] || null);
+      });
+    }
+  }, []);
 
   const form = useForm<InsertTask>({
     resolver: zodResolver(insertTaskSchema),
@@ -49,6 +61,10 @@ export default function Home() {
         description: "Your task has been submitted successfully",
       });
       form.reset();
+      // Invalidate the tasks query to refresh the task history
+      if (walletAddress) {
+        queryClient.invalidateQueries({ queryKey: [`/api/tasks/${walletAddress}`] });
+      }
     },
     onError: (error) => {
       toast({
@@ -71,13 +87,6 @@ export default function Home() {
     mutation.mutate({ ...data, walletAddress });
   };
 
-  // Listen for wallet changes
-  if (window.ethereum) {
-    window.ethereum.on("accountsChanged", (accounts: string[]) => {
-      setWalletAddress(accounts[0] || null);
-    });
-  }
-
   return (
     <div className="max-w-2xl mx-auto">
       <Card>
@@ -85,59 +94,68 @@ export default function Home() {
           <CardTitle>Submit AI Agent Task</CardTitle>
         </CardHeader>
         <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="agentType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>AI Agent Type</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
+          {!walletAddress ? (
+            <p className="text-muted-foreground mb-4">Please connect your wallet to submit tasks.</p>
+          ) : (
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="agentType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>AI Agent Type</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select an agent" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {agentTypes.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {type}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="input"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Task Input</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select an agent" />
-                        </SelectTrigger>
+                        <Input 
+                          placeholder="Enter task details..."
+                          {...field}
+                          className="h-24"
+                          component="textarea"
+                        />
                       </FormControl>
-                      <SelectContent>
-                        {agentTypes.map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {type}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="input"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Task Input</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter task details..." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <Button
-                type="submit"
-                disabled={mutation.isPending}
-                className="w-full"
-              >
-                {mutation.isPending ? "Submitting..." : "Submit Task"}
-              </Button>
-            </form>
-          </Form>
+                <Button
+                  type="submit"
+                  disabled={mutation.isPending}
+                  className="w-full"
+                >
+                  {mutation.isPending ? "Submitting..." : "Submit Task"}
+                </Button>
+              </form>
+            </Form>
+          )}
         </CardContent>
       </Card>
     </div>
